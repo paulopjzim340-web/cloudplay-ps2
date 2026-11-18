@@ -1,0 +1,60 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Localizar projeto
+        id: proj
+        run: |
+          if [ -f settings.gradle.kts ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          elif [ -f cloudplay-ps2.zip ]; then
+            unzip -q cloudplay-ps2.zip -d _src
+            d=$(dirname "$(find _src -name settings.gradle.kts | head -1)")
+            echo "dir=$d" >> "$GITHUB_OUTPUT"
+          else
+            echo "Projeto não encontrado: envie cloudplay-ps2.zip para a raiz do repositório."; exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Gerar Gradle Wrapper
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: gradle wrapper --gradle-version 8.7 --distribution-type bin && chmod +x gradlew
+
+      - name: Compilar APK (debug)
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Renomear APK
+        run: cp "${{ steps.proj.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk" "$GITHUB_WORKSPACE/CloudPlayPS2.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CloudPlayPS2-apk
+          path: CloudPlayPS2.apk
+
+      - name: Publicar em Releases (download direto no celular)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: CLOUD PLAY PS2 build ${{ github.run_number }}
+          prerelease: true
+          files: CloudPlayPS2.apk
