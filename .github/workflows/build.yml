@@ -31,8 +31,8 @@ jobs:
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 11076708
+       
+         
 
       - uses: gradle/actions/setup-gradle@v4
         with:
